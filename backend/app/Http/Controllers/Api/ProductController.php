@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -33,6 +34,14 @@ class ProductController extends Controller
         ]);
 
         $product = Product::create($validated);
+
+        // INFO: produk tersimpan. Dicatat siapa pelakunya dan id produk, bukan isi datanya.
+        Log::info('product.created', [
+            'actor' => $request->user()->id,
+            'action' => 'create_product',
+            'reason' => 'valid_request_from_authenticated_user',
+            'product_id' => $product->id,
+        ]);
 
         return response()->json([
             'message' => 'Produk berhasil ditambahkan.',
