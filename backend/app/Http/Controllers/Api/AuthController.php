@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -23,6 +24,13 @@ class AuthController extends Controller
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
+        ]);
+
+        // INFO: akun baru berhasil dibuat. Hanya id yang dicatat, bukan nama/email/password.
+        Log::info('user.registered', [
+            'actor' => $user->id,
+            'action' => 'register_account',
+            'reason' => 'valid_registration_request',
         ]);
 
         $token = $user->createToken('auth-token')->plainTextToken;
@@ -46,6 +54,15 @@ class AuthController extends Controller
         $user = User::where('email', $validated['email'])->first();
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
+            // WARNING: login gagal. Email dan password sengaja TIDAK dicatat.
+            Log::warning('auth.login_failed', [
+                'actor' => 'guest',
+                'action' => 'login',
+                'reason' => 'invalid_credentials',
+            ]);
+            // Tandai supaya handler validasi di bootstrap/app.php tidak mencatat log ganda.
+            $request->attributes->set('log_already_written', true);
+
             throw ValidationException::withMessages([
                 'email' => ['Email atau password salah.'],
             ]);
