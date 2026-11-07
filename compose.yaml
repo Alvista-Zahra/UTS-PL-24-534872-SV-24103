@@ -1,4 +1,3 @@
-
 services:
   backend:
     build:
@@ -13,6 +12,8 @@ services:
       SESSION_DRIVER: file
       CACHE_STORE: file
       QUEUE_CONNECTION: sync
+      LOG_CHANNEL: stdout
+      LOG_LEVEL: debug
     volumes:
       - backend-data:/var/www/html/database
     ports:
