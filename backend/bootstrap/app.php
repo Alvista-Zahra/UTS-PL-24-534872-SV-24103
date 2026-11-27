@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CollectMetrics;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,7 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // Menghitung permintaan HTTP untuk metrik Prometheus (endpoint /metrics).
+        $middleware->append(CollectMetrics::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->shouldRenderJsonWhen(
