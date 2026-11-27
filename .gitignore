@@ -1,8 +1,7 @@
-@"
+# Rahasia lokal (password DB, APP_KEY, password Grafana). Jangan di-commit.
 .env
 .env.*
 !.env.example
 /vendor/
 /node_modules/
 /public/build/
-"@ | Set-Content .gitignore

@@ -1,0 +1,14 @@
+groups:
+  - name: uts-app
+    rules:
+      # Berbunyi bila Prometheus gagal mengambil metrik dari sebuah layanan
+      # selama 1 menit berturut-turut (bukan sekadar satu kali scrape gagal).
+      - alert: LayananMati
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Layanan {{ $labels.service }} ({{ $labels.instance }}) mati atau tidak menjawab"
+          description: "Prometheus tidak bisa mengambil metrik dari job {{ $labels.job }} selama lebih dari 1 menit. Bila yang mati backend, pengguna tidak bisa login maupun melihat produk."
+          tindakan_pertama: "Jalankan `docker compose ps {{ $labels.service }}` untuk melihat status container, lalu `docker compose logs --tail=100 {{ $labels.service }}` untuk membaca sebab matinya. Setelah sebabnya jelas, hidupkan lagi dengan `docker compose up -d {{ $labels.service }}`."

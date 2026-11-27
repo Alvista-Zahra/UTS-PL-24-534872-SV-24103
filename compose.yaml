@@ -68,5 +68,103 @@ services:
     restart: unless-stopped
     logging: *default-logging
 
+  # ---------------------------------------------------------------
+  # Pemantauan (P11): Prometheus, Grafana, cAdvisor, node-exporter
+  # ---------------------------------------------------------------
+
+  # Menerjemahkan penghitung stub_status nginx (frontend) ke format Prometheus.
+  # Semua request pengguna (halaman Vue + /api/*) lewat nginx ini.
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.2
+    container_name: uts-nginx-exporter
+    command:
+      - --nginx.scrape-uri=http://frontend:8081/stub_status
+    depends_on:
+      - frontend
+    restart: unless-stopped
+    logging: *default-logging
+
+  # Metrik CPU dan memori per container.
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: uts-cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=10s
+      - --store_container_labels=false
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    restart: unless-stopped
+    logging: *default-logging
+
+  # Metrik mesin host (CPU, memori, disk, jaringan).
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: uts-node-exporter
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    restart: unless-stopped
+    logging: *default-logging
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: uts-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - cadvisor
+      - node-exporter
+      - nginx-exporter
+      - backend
+    restart: unless-stopped
+    logging: *default-logging
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: uts-grafana
+    environment:
+      # Password admin WAJIB diisi di .env; tanpa itu compose menolak jalan,
+      # jadi Grafana tidak pernah hidup dengan admin/admin.
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD belum diatur di file .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    logging: *default-logging
+
 volumes:
   db-data:
+  prometheus-data:
+  grafana-data:
